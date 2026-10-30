@@ -6,7 +6,6 @@ import android.content.Context
 import android.graphics.Path
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
-import kotlin.math.abs
 
 class MouseAccessibilityService : AccessibilityService() {
 
@@ -16,20 +15,19 @@ class MouseAccessibilityService : AccessibilityService() {
         
         fun getInstance(): MouseAccessibilityService? = instance
         
-        fun isRunning(): Boolean = instance?.serviceRunning() ?: false
+        fun isRunning(): Boolean = instance?.isRunningInternal() ?: false
     }
 
     private lateinit var windowManager: WindowManager
     private var trackpadView: TrackpadView? = null
     private var cursorView: CursorView? = null
     private var lastTapTime: Long = 0
-    private var serviceRunning: Boolean = false
-    private var pendingLongPress: Runnable? = null
+    private var running: Boolean = false
 
     private val screenWidth get() = resources.displayMetrics.widthPixels
     private val screenHeight get() = resources.displayMetrics.heightPixels
 
-    fun serviceRunning(): Boolean = serviceRunning
+    private fun isRunningInternal(): Boolean = running
 
     override fun onCreate() {
         super.onCreate()
@@ -39,7 +37,7 @@ class MouseAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        serviceRunning = true
+        running = true
         createOverlays()
         updateTileState()
     }
@@ -111,12 +109,12 @@ class MouseAccessibilityService : AccessibilityService() {
     }
 
     fun toggleService() {
-        if (serviceRunning) {
+        if (running) {
             removeOverlays()
-            serviceRunning = false
+            running = false
         } else {
             createOverlays()
-            serviceRunning = true
+            running = true
         }
         updateTileState()
     }
@@ -124,8 +122,8 @@ class MouseAccessibilityService : AccessibilityService() {
     private fun updateTileState() {
         val tile = com.virtualmouse.app.settings.MouseTileService.getTile()
         tile?.let {
-            it.state = if (serviceRunning) android.service.quicksettings.Tile.STATE_ACTIVE else android.service.quicksettings.Tile.STATE_INACTIVE
-            it.subtitle = if (serviceRunning) "On" else "Off"
+            it.state = if (running) android.service.quicksettings.Tile.STATE_ACTIVE else android.service.quicksettings.Tile.STATE_INACTIVE
+            it.subtitle = if (running) "On" else "Off"
             it.updateTile()
         }
     }
@@ -208,7 +206,7 @@ class MouseAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        serviceRunning = false
+        running = false
         removeOverlays()
         instance = null
     }

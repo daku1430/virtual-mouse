@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -35,8 +37,13 @@ class TrackpadView(context: Context, attrs: AttributeSet? = null) : View(context
     private var lastX: Float = 0f
     private var lastY: Float = 0f
     private var downTime: Long = 0
-    private var tapCount = 0
+    private var lastTapTime: Long = 0
     private var isDragging = false
+    private val handler = Handler(Looper.getMainLooper())
+
+    private val pendingSingleTap = Runnable {
+        onSingleTapListener?.invoke()
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val desiredWidth = 280
@@ -65,6 +72,7 @@ class TrackpadView(context: Context, attrs: AttributeSet? = null) : View(context
                 lastX = event.x
                 lastY = event.y
                 isDragging = true
+                handler.removeCallbacks(pendingSingleTap)
                 parent?.requestDisallowInterceptTouchEvent(true)
                 return true
             }
@@ -88,33 +96,25 @@ class TrackpadView(context: Context, attrs: AttributeSet? = null) : View(context
                 return true
             }
             
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+            MotionEvent.ACTION_UP -> {
+                val now = event.eventTime
+                val elapsed = now - downTime
+                
                 if (!isDragging || event.pointerCount > 1) {
+                    handler.removeCallbacks(pendingSingleTap)
                     parent?.requestDisallowInterceptTouchEvent(false)
                     isDragging = false
                     return true
                 }
                 
-                val now = event.eventTime
-                val elapsed = now - downTime
-                
-                if (elapsed < 100) {
-                    // Likely double-tap timing
-                    val doubleTapTime = lastTapTime + DOUBLE_TAP_TIMEOUT_MS
-                    if (now >= lastTapTime && now <= doubleTapTime) {
-                        onDoubleTapListener?.invoke()
-                        tapCount = 0
-                    } else {
-                        postDelayed({
-                            if (tapCount == 0) {
-                                onSingleTapListener?.invoke()
-                            }
-                            tapCount = 0
-                        }, DOUBLE_TAP_TIMEOUT_MS - elapsed)
-                        tapCount++
-                    }
+                // Check for double tap
+                if (now - lastTapTime < 300) {
+                    // Double tap detected
+                    handler.removeCallbacks(pendingSingleTap)
+                    onDoubleTapListener?.invoke()
                 } else {
-                    onSingleTapListener?.invoke()
+                    // Post single tap with delay to detect double tap
+                    handler.postDelayed(pendingSingleTap, 180)
                 }
                 
                 lastTapTime = now
@@ -123,7 +123,15 @@ class TrackpadView(context: Context, attrs: AttributeSet? = null) : View(context
                 return true
             }
             
+            MotionEvent.ACTION_POINTER_UP -> {
+                handler.removeCallbacks(pendingSingleTap)
+                parent?.requestDisallowInterceptTouchEvent(false)
+                isDragging = false
+                return true
+            }
+            
             MotionEvent.ACTION_CANCEL -> {
+                handler.removeCallbacks(pendingSingleTap)
                 isDragging = false
                 parent?.requestDisallowInterceptTouchEvent(false)
                 return true
@@ -131,11 +139,6 @@ class TrackpadView(context: Context, attrs: AttributeSet? = null) : View(context
         }
         
         return super.onTouchEvent(event)
-    }
-
-    companion object {
-        private const val DOUBLE_TAP_TIMEOUT_MS = 300L
-        private var lastTapTime: Long = 0
     }
 
     fun setOnDragListener(listener: (dx: Float, dy: Float) -> Unit) {
