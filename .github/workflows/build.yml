@@ -18,20 +18,22 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: gradle
           
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+          ndk: ''
+          
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
           
-      - name: Grant Gradle wrapper permissions
-        run: chmod +x ./gradlew
-          
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
