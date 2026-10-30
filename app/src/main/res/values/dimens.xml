@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="trackpad_margin">16dp</dimen>
+    <dimen name="trackpad_min_width">200dp</dimen>
+    <dimen name="trackpad_min_height">120dp</dimen>
+    <dimen name="cursor_size">32dp</dimen>
+    <dimen name="handle_size">24dp</dimen>
+</resources>

@@ -1,0 +1,23 @@
+# Build
+/app/build/
+/build/
+/.gradle/
+/local.properties
+captures/
+*.apk
+*.aab
+
+# IDE
+*.iml
+.idea/
+.gradle/
+.DS_Store
+.ToolsSetup/
+.classpath
+.project
+.settings/
+*.backup
+*.orig
+
+# ProGuard
+proguard_maps.txt
