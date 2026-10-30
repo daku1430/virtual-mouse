@@ -3,9 +3,10 @@ package com.virtualmouse.app
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Context
+import android.graphics.Path
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
-import android.graphics.Point
+import kotlin.math.abs
 
 class MouseAccessibilityService : AccessibilityService() {
 
@@ -15,7 +16,7 @@ class MouseAccessibilityService : AccessibilityService() {
         
         fun getInstance(): MouseAccessibilityService? = instance
         
-        fun isRunning(): Boolean = instance?.isServiceRunning() ?: false
+        fun isRunning(): Boolean = instance?.serviceRunning() ?: false
     }
 
     private lateinit var windowManager: WindowManager
@@ -23,11 +24,12 @@ class MouseAccessibilityService : AccessibilityService() {
     private var cursorView: CursorView? = null
     private var lastTapTime: Long = 0
     private var serviceRunning: Boolean = false
+    private var pendingLongPress: Runnable? = null
 
-    private val screenWidth get() = resources.displayMatrix.width()
-    private val screenHeight get() = resources.displayMatrix.height()
+    private val screenWidth get() = resources.displayMetrics.widthPixels
+    private val screenHeight get() = resources.displayMetrics.heightPixels
 
-    fun isServiceRunning(): Boolean = serviceRunning
+    fun serviceRunning(): Boolean = serviceRunning
 
     override fun onCreate() {
         super.onCreate()
@@ -66,6 +68,7 @@ class MouseAccessibilityService : AccessibilityService() {
         trackpadParams.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
         trackpadView?.let {
             windowManager.addView(it, trackpadParams)
+            setupTrackpadGestures()
         }
 
         // Create cursor overlay
@@ -89,6 +92,24 @@ class MouseAccessibilityService : AccessibilityService() {
         cursorView = null
     }
 
+    private fun setupTrackpadGestures() {
+        trackpadView?.setOnDragListener { dx, dy ->
+            moveCursor(dx, dy)
+        }
+        
+        trackpadView?.setOnSingleTapListener {
+            performLeftClick()
+        }
+        
+        trackpadView?.setOnDoubleTapListener {
+            performDoubleClick()
+        }
+        
+        trackpadView?.setOnTwoFingerTapListener {
+            performLongClick()
+        }
+    }
+
     fun toggleService() {
         if (serviceRunning) {
             removeOverlays()
@@ -109,29 +130,33 @@ class MouseAccessibilityService : AccessibilityService() {
         }
     }
 
-    fun getCursorX(): Float = cursorView?.x ?: screenWidth / 2f
-    fun getCursorY(): Float = cursorView?.y ?: screenHeight / 2f
+    fun getCursorX(): Float = cursorView?.x ?: (screenWidth / 2).toFloat()
+    fun getCursorY(): Float = cursorView?.y ?: (screenHeight / 2).toFloat()
 
     fun moveCursor(dx: Float, dy: Float) {
         cursorView?.let {
-            val newX = (it.x + dx).coerceIn(0f, screenWidth - it.width)
-            val newY = (it.y + dy).coerceIn(0f, screenHeight - it.height)
+            val newX = (it.x + dx).coerceIn(0f, (screenWidth - it.width).toFloat())
+            val newY = (it.y + dy).coerceIn(0f, (screenHeight - it.height).toFloat())
             it.x = newX
             it.y = newY
         }
     }
 
     fun performLeftClick() {
-        val path = GestureDescription.Builder()
-            .addStep(GestureDescription.StepBuilder(
-                GestureDescription.PathBuilder()
-                    .moveTo(getCursorX(), getCursorY())
-                    .press()
-                    .release()
-            ).build())
+        val cursorX = getCursorX()
+        val cursorY = getCursorY()
+        
+        val path = Path().apply {
+            moveTo(cursorX, cursorY)
+            lineTo(cursorX, cursorY)
+        }
+        
+        val stroke = GestureDescription.StrokeDescription(path, 0, 50)
+        val gesture = GestureDescription.Builder()
+            .addStroke(stroke)
             .build()
         
-        dispatchGesture(path, null, null)
+        dispatchGesture(gesture, null, null)
     }
 
     fun performDoubleClick() {
@@ -145,55 +170,40 @@ class MouseAccessibilityService : AccessibilityService() {
         }
     }
 
-    fun performRightClick() {
-        val path = GestureDescription.Builder()
-            .addStep(GestureDescription.StepBuilder(
-                GestureDescription.PathBuilder()
-                    .moveTo(getCursorX(), getCursorY())
-                    .press()
-                    .release()
-            ).build())
-            .build()
-        
-        dispatchGesture(path, null, null)
-    }
-
     fun performLongClick() {
-        val path = GestureDescription.Builder()
-            .addStep(
-                GestureDescription.StepBuilder(
-                    GestureDescription.PathBuilder()
-                        .moveTo(getCursorX(), getCursorY())
-                        .press(500)
-                ).setInterval(0)
-            )
+        val cursorX = getCursorX()
+        val cursorY = getCursorY()
+        
+        val path = Path().apply {
+            moveTo(cursorX, cursorY)
+            lineTo(cursorX, cursorY)
+        }
+        
+        val stroke = GestureDescription.StrokeDescription(path, 0, 500)
+        val gesture = GestureDescription.Builder()
+            .addStroke(stroke)
             .build()
         
-        dispatchGesture(path, null, null)
-    }
-
-    fun performDrag(startX: Float, startY: Float, endX: Float, endY: Float, duration: Long = 200L) {
-        val path = GestureDescription.Builder()
-            .addStep(GestureDescription.StepBuilder(
-                GestureDescription.PathBuilder()
-                    .moveTo(startX, startY)
-                    .lineTo(endX, endY)
-                    .up()
-            ).setDuration(duration))
-            .build()
-        
-        dispatchGesture(path, null, null)
+        dispatchGesture(gesture, null, null)
     }
 
     fun performScroll(dx: Float, dy: Float) {
-        val path = GestureDescription.Builder()
-            .addStep(GestureDescription.StepBuilder(
-                GestureDescription.PathBuilder()
-                    .swipe(getCursorX(), getCursorY(), getCursorX() - dx, getCursorY() - dy, 200)
-            ).build())
+        val startX = getCursorX()
+        val startY = getCursorY()
+        val endX = startX - dx
+        val endY = startY - dy
+        
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(endX, endY)
+        }
+        
+        val stroke = GestureDescription.StrokeDescription(path, 0, 200)
+        val gesture = GestureDescription.Builder()
+            .addStroke(stroke)
             .build()
         
-        dispatchGesture(path, null, null)
+        dispatchGesture(gesture, null, null)
     }
 
     override fun onDestroy() {

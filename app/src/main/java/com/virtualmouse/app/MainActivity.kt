@@ -1,6 +1,8 @@
 package com.virtualmouse.app
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
@@ -35,11 +37,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
+        val serviceComponent = ComponentName(this, MouseAccessibilityService::class.java)
         val enabledServices = Settings.Secure.getString(
             contentResolver,
             "enabled_accessibility_service_list"
         )
-        return enabledServices?.contains("com.virtualmouse.app") ?: false
+        return enabledServices?.contains(serviceComponent.flattenToShortString()) ?: false
     }
 
     private fun updateServiceStatus(enabled: Boolean) {

@@ -2,9 +2,8 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/accessibility_description"
     android:packageNames="com.virtualmouse.app"
-    android:accessibilityEventTypes="none"
+    android:accessibilityEventTypes="typeAllMask"
     android:canPerformGestures="true"
     android:canRetrieveWindowContent="false"
     android:notificationTimeout="0"
-    android:params="0"
     android:settingsActivity="com.virtualmouse.app.MainActivity" />

@@ -1,11 +1,8 @@
 package com.virtualmouse.app.settings
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.graphics.drawable.Drawable
-import androidx.core.content.ContextCompat
 import com.virtualmouse.app.MouseAccessibilityService
 
 class MouseTileService : TileService() {
@@ -20,10 +17,10 @@ class MouseTileService : TileService() {
         super.onClick()
         val service = MouseAccessibilityService.getInstance()
         
-        if (service == null) {
-            // Service not running, try to enable it
-            val intent = Intent(this, MouseAccessibilityService::class.java)
-            intent.action = android.accessibilityservice.AccessibilityService.ACTION_CLICK_TO_TOUCH
+        if (service == null || !MouseAccessibilityService.isRunning()) {
+            // Try to open accessibility settings
+            val intent = Intent(this, com.virtualmouse.app.MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivityAndCollapse(intent)
             return
         }
@@ -36,7 +33,7 @@ class MouseTileService : TileService() {
         tileInstance = qsTile
         
         val service = MouseAccessibilityService.getInstance()
-        val isEnabled = service != null && service.isServiceRunning()
+        val isEnabled = service != null && MouseAccessibilityService.isRunning()
         
         qsTile?.apply {
             state = if (isEnabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE

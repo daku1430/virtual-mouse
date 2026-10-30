@@ -4,15 +4,24 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.drawable.Drawable
+import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
 
 class CursorView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
+    enum class CursorType { ARROW_WHITE, ARROW_BLACK, POINTER }
+    
     private var cursorType: CursorType = CursorType.ARROW_WHITE
-    private var cursorPaint: Paint? = null
-    private val arrowPaths = mutableMapOf<CursorType, Pair<Int, Int>>()
+    private val fillPaint = Paint().apply {
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+    private val outlinePaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        isAntiAlias = true
+    }
 
     init {
         setZ(1000f) // Ensure cursor is above other views
@@ -20,119 +29,84 @@ class CursorView(context: Context, attrs: AttributeSet? = null) : View(context, 
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        updateCursorPaint()
         x = (w / 2).toFloat()
         y = (h / 2).toFloat()
-    }
-
-    private fun updateCursorPaint() {
-        cursorPaint = Paint().apply {
-            color = when (cursorType) {
-                CursorType.ARROW_WHITE -> Color.WHITE
-                CursorType.ARROW_BLACK -> Color.BLACK
-                CursorType.POINTER -> Color.BLACK
-            }
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        cursorPaint?.let { paint ->
-            when (cursorType) {
-                CursorType.ARROW_WHITE -> {
-                    drawArrowWhite(canvas, paint)
-                }
-                CursorType.ARROW_BLACK -> {
-                    drawArrowBlack(canvas, paint)
-                }
-                CursorType.POINTER -> {
-                    drawPointer(canvas, paint)
-                }
-            }
+        when (cursorType) {
+            CursorType.ARROW_WHITE -> drawArrowWhite(canvas)
+            CursorType.ARROW_BLACK -> drawArrowBlack(canvas)
+            CursorType.POINTER -> drawPointer(canvas)
         }
     }
 
-    private fun drawArrowWhite(canvas: Canvas, paint: Paint) {
-        // White arrow with black outline
-        val path = android.graphics.Path()
+    private fun drawArrowWhite(canvas: Canvas) {
         val w = width
         val h = height
+        val path = buildArrowPath(w, h)
         
-        // Arrow body
-        path.moveTo(w / 2f, 0f)
-        path.lineTo(w / 4f, h / 3f)
-        path.lineTo(w / 8f, h / 3f)
-        path.lineTo(w / 2f, h * 0.7f)
-        path.lineTo(w * 0.75f, h / 3f)
-        path.lineTo(w * 0.875f, h / 3f)
-        path.close()
+        fillPaint.color = Color.WHITE
+        outlinePaint.color = Color.BLACK
         
-        // Black outline
-        val outlinePaint = Paint().apply {
-            color = Color.BLACK
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-        }
-        canvas.drawPath(path, paint)
+        canvas.drawPath(path, fillPaint)
         canvas.drawPath(path, outlinePaint)
     }
 
-    private fun drawArrowBlack(canvas: Canvas, paint: Paint) {
-        // Black arrow with white outline
-        val path = android.graphics.Path()
+    private fun drawArrowBlack(canvas: Canvas) {
         val w = width
         val h = height
+        val path = buildArrowPath(w, h)
         
-        path.moveTo(w / 2f, 0f)
-        path.lineTo(w / 4f, h / 3f)
-        path.lineTo(w / 8f, h / 3f)
-        path.lineTo(w / 2f, h * 0.7f)
-        path.lineTo(w * 0.75f, h / 3f)
-        path.lineTo(w * 0.875f, h / 3f)
-        path.close()
+        fillPaint.color = Color.BLACK
+        outlinePaint.color = Color.WHITE
         
-        // White outline
-        val outlinePaint = Paint().apply {
-            color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-        }
-        canvas.drawPath(path, paint)
+        canvas.drawPath(path, fillPaint)
         canvas.drawPath(path, outlinePaint)
     }
 
-    private fun drawPointer(canvas: Canvas, paint: Paint) {
-        // Hand pointer cursor
-        val path = android.graphics.Path()
+    private fun drawPointer(canvas: Canvas) {
         val w = width
         val h = height
+        val path = buildPointerPath(w, h)
         
-        // Pointer shape
-        path.moveTo(w * 0.3f, 0f)
-        path.lineTo(w * 0.3f, h * 0.4f)
-        path.lineTo(0f, h * 0.5f)
-        path.lineTo(w * 0.1f, h * 0.5f)
-        path.lineTo(w * 0.4f, h)
-        path.lineTo(w * 0.6f, h * 0.6f)
-        path.lineTo(w, h * 0.5f)
-        path.lineTo(w * 0.9f, h * 0.5f)
-        path.close()
+        fillPaint.color = Color.BLACK
         
-        canvas.drawPath(path, paint)
+        canvas.drawPath(path, fillPaint)
+    }
+
+    private fun buildArrowPath(w: Int, h: Int): Path {
+        return Path().apply {
+            moveTo(w / 2f, 0f)
+            lineTo(w / 4f, h / 3f)
+            lineTo(w / 8f, h / 3f)
+            lineTo(w / 2f, h * 2f / 3f)
+            lineTo(w * 3f / 4f, h / 3f)
+            lineTo(w * 7f / 8f, h / 3f)
+            close()
+        }
+    }
+
+    private fun buildPointerPath(w: Int, h: Int): Path {
+        return Path().apply {
+            moveTo(w * 0.3f, 0f)
+            lineTo(w * 0.3f, h * 0.4f)
+            lineTo(0f, h * 0.5f)
+            lineTo(w * 0.1f, h * 0.5f)
+            lineTo(w * 0.4f, h.toFloat())
+            lineTo(w * 0.6f, h * 0.6f)
+            lineTo(w.toFloat(), h * 0.5f)
+            lineTo(w * 0.9f, h * 0.5f)
+            close()
+        }
     }
 
     fun setCursorType(type: CursorType) {
         cursorType = type
-        updateCursorPaint()
         invalidate()
     }
 
     fun getCursorType(): CursorType = cursorType
-}
-
-enum class CursorType {
-    ARROW_WHITE, ARROW_BLACK, POINTER
 }
