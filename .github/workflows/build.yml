@@ -21,11 +21,10 @@ jobs:
           cache: gradle
           
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           api-level: 34
           build-tools: 34.0.0
-          ndk: ''
           
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
